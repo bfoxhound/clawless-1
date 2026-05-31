@@ -1,0 +1,44 @@
+{
+  "name": "chaos-agents",
+  "version": "0.1.0",
+  "description": "Chaos engineering for AI agents — Chaos Monkey, but for your agents and tools.",
+  "type": "module",
+  "main": "src/index.js",
+  "types": "src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js"
+    }
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node test/smoke.test.js"
+  },
+  "keywords": [
+    "chaos-engineering",
+    "ai-agents",
+    "llm",
+    "testing",
+    "resilience",
+    "fault-injection",
+    "chaos-monkey"
+  ],
+  "author": "Shreyas Kapale <shreyas@lyzr.ai>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lyzr-ai/chaos-agents.git"
+  },
+  "bugs": {
+    "url": "https://github.com/lyzr-ai/chaos-agents/issues"
+  },
+  "homepage": "https://github.com/lyzr-ai/chaos-agents#readme",
+  "engines": {
+    "node": ">=16"
+  }
+}
