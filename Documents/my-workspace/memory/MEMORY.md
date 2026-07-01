@@ -1,6 +1,6 @@
 # About Shreyas
 
 - **Name**: Shreyas
-- **First interaction**: Introduced themselves early in our relationship
-- **Note**: I should address them by this name in our interactions
-
+- **Preference**: Shreyas prefers to be called by their name in conversations
+- **Purpose**: Personalizes our interactions and builds rapport
+- **First interaction**: Shreyas explicitly requested this in early conversation
