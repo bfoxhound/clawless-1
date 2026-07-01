@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plane Flying Animation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 100%;
+            height: 100vh;
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 100%);
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        /* Clouds */
+        .cloud {
+            position: absolute;
+            background: white;
+            border-radius: 100px;
+            opacity: 0.7;
+        }
+
+        .cloud::before {
+            content: '';
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: white;
+            border-radius: 50px;
+            top: -25px;
+            left: 10px;
+        }
+
+        .cloud::after {
+            content: '';
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background: white;
+            border-radius: 50px;
+            top: -30px;
+            right: 10px;
+        }
+
+        .cloud1 {
+            width: 100px;
+            height: 40px;
+            top: 15%;
+            left: -100px;
+            animation: cloudFloat1 15s linear infinite;
+        }
+
+        .cloud2 {
+            width: 80px;
+            height: 35px;
+            top: 30%;
+            left: -80px;
+            animation: cloudFloat2 20s linear infinite;
+        }
+
+        .cloud3 {
+            width: 120px;
+            height: 45px;
+            top: 50%;
+            left: -120px;
+            animation: cloudFloat3 25s linear infinite;
+        }
+
+        @keyframes cloudFloat1 {
+            0% { left: -100px; }
+            100% { left: 100vw; }
+        }
+
+        @keyframes cloudFloat2 {
+            0% { left: -80px; }
+            100% { left: 100vw; }
+        }
+
+        @keyframes cloudFloat3 {
+            0% { left: -120px; }
+            100% { left: 100vw; }
+        }
+
+        /* Plane */
+        .plane-wrapper {
+            position: absolute;
+            top: 40%;
+            left: 0;
+            animation: planeMove 8s ease-in-out infinite;
+        }
+
+        @keyframes planeMove {
+            0% {
+                left: -100px;
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-50px);
+            }
+            100% {
+                left: 100vw;
+                transform: translateY(0);
+            }
+        }
+
+        .plane {
+            font-size: 60px;
+            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+            animation: planeRotate 8s ease-in-out infinite;
+        }
+
+        @keyframes planeRotate {
+            0% {
+                transform: scaleX(1);
+            }
+            50% {
+                transform: scaleX(1);
+            }
+            100% {
+                transform: scaleX(1);
+            }
+        }
+
+        /* Trail effect */
+        .trail {
+            position: absolute;
+            font-size: 30px;
+            opacity: 0.3;
+            pointer-events: none;
+            animation: planeMove 8s ease-in-out infinite;
+        }
+
+        .trail:nth-child(2) { margin-left: -20px; animation-delay: -0.2s; }
+        .trail:nth-child(3) { margin-left: -40px; animation-delay: -0.4s; }
+
+        /* Text */
+        .title {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 24px;
+            color: #333;
+            font-weight: bold;
+        }
+
+        .sun {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            background: #FFD700;
+            border-radius: 50%;
+            top: 20px;
+            right: 30px;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sun"></div>
+
+        <div class="cloud cloud1"></div>
+        <div class="cloud cloud2"></div>
+        <div class="cloud cloud3"></div>
+
+        <div class="plane-wrapper">
+            <div class="trail">✈️</div>
+            <div class="trail">✈️</div>
+            <div class="trail">✈️</div>
+            <div class="plane">✈️</div>
+        </div>
+
+        <div class="title">✈️ Smooth Plane Flight ✈️</div>
+    </div>
+</body>
+</html>

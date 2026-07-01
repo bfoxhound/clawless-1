@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bouncing Ball</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 40%, #1a1f3a 0%, #0a0c18 100%);
+  }
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    background: rgba(255, 255, 255, 0.02);
+  }
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<script>
+  const canvas = document.getElementById('scene');
+  const ctx = canvas.getContext('2d');
+
+  // Ball state (position, velocity, radius)
+  const ball = {
+    x: 0,
+    y: 0,
+    vx: 260,   // pixels per second
+    vy: 190,
+    r: 34
+  };
+
+  let width = 0;
+  let height = 0;
+
+  function resize() {
+    // Fill most of the viewport (90%) while keeping the ball inside bounds.
+    width = Math.floor(window.innerWidth * 0.9);
+    height = Math.floor(window.innerHeight * 0.9);
+    canvas.width = width;
+    canvas.height = height;
+
+    // Keep the ball within the new bounds after a resize.
+    ball.x = Math.min(Math.max(ball.x || width / 2, ball.r), width - ball.r);
+    ball.y = Math.min(Math.max(ball.y || height / 2, ball.r), height - ball.r);
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+
+  function drawBall() {
+    // Soft glow behind the ball.
+    ctx.save();
+    ctx.shadowColor = 'rgba(255, 94, 148, 0.65)';
+    ctx.shadowBlur = 45;
+
+    // Radial gradient gives the ball a lit, three-dimensional look.
+    const grad = ctx.createRadialGradient(
+      ball.x - ball.r * 0.35, ball.y - ball.r * 0.35, ball.r * 0.15,
+      ball.x, ball.y, ball.r
+    );
+    grad.addColorStop(0, '#fff2f6');
+    grad.addColorStop(0.35, '#ff7eb3');
+    grad.addColorStop(1, '#ff2e74');
+
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  let last = performance.now();
+
+  function frame(now) {
+    const dt = Math.min((now - last) / 1000, 0.05); // clamp to avoid big jumps
+    last = now;
+
+    // Integrate motion.
+    ball.x += ball.vx * dt;
+    ball.y += ball.vy * dt;
+
+    // Reflect off the four walls, clamping to keep the ball fully on-canvas.
+    if (ball.x - ball.r <= 0) {
+      ball.x = ball.r;
+      ball.vx = Math.abs(ball.vx);
+    } else if (ball.x + ball.r >= width) {
+      ball.x = width - ball.r;
+      ball.vx = -Math.abs(ball.vx);
+    }
+
+    if (ball.y - ball.r <= 0) {
+      ball.y = ball.r;
+      ball.vy = Math.abs(ball.vy);
+    } else if (ball.y + ball.r >= height) {
+      ball.y = height - ball.r;
+      ball.vy = -Math.abs(ball.vy);
+    }
+
+    ctx.clearRect(0, 0, width, height);
+    drawBall();
+
+    requestAnimationFrame(frame);
+  }
+
+  requestAnimationFrame(frame);
+</script>
+</body>
+</html>

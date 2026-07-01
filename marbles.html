@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jumping Marbles</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #0b0d1a;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  #scene {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+  }
+  .title {
+    position: fixed;
+    top: 24px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    pointer-events: none;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  }
+  .hint {
+    position: fixed;
+    bottom: 20px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 12px;
+    letter-spacing: 1px;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+  <canvas id="scene"></canvas>
+  <div class="title">Jumping Marbles</div>
+  <div class="hint">click anywhere to make them leap</div>
+
+<script>
+(function () {
+  "use strict";
+
+  const canvas = document.getElementById("scene");
+  const ctx = canvas.getContext("2d");
+
+  let W = 0, H = 0, DPR = 1, floorY = 0;
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = Math.floor(W * DPR);
+    canvas.height = Math.floor(H * DPR);
+    canvas.style.width = W + "px";
+    canvas.style.height = H + "px";
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    floorY = H - Math.max(60, H * 0.10);
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  // A pleasing, varied palette. Each entry is [core color, highlight tint].
+  const PALETTE = [
+    "#ff5d73", "#ffd166", "#4ecdc4", "#5b8cff",
+    "#c77dff", "#ff9f68", "#54e38e", "#ff7ac6",
+    "#7ee8fa", "#f6f740", "#ff6b6b", "#9d8dff"
+  ];
+
+  // Convert a hex color to an rgb object.
+  function hexToRgb(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+  }
+  function shade(rgb, f) {
+    // f > 1 lightens, f < 1 darkens.
+    const clamp = (v) => Math.max(0, Math.min(255, Math.round(v)));
+    return `rgb(${clamp(rgb.r * f)},${clamp(rgb.g * f)},${clamp(rgb.b * f)})`;
+  }
+  function rgbaStr(rgb, a) {
+    return `rgba(${rgb.r},${rgb.g},${rgb.b},${a})`;
+  }
+
+  function rand(min, max) { return min + Math.random() * (max - min); }
+
+  class Marble {
+    constructor(i, count) {
+      const color = PALETTE[i % PALETTE.length];
+      this.rgb = hexToRgb(color);
+      this.color = color;
+
+      this.radius = rand(20, 40);
+      // Spread marbles across the width.
+      this.x = ((i + 0.5) / count) * W + rand(-30, 30);
+      this.y = rand(H * 0.1, floorY - 100);
+
+      this.vx = rand(-60, 60);           // px/sec
+      this.vy = rand(-40, 40);
+
+      // Per-marble physics variation.
+      this.gravity = rand(1400, 2200);   // px/sec^2
+      this.restitution = rand(0.72, 0.92); // bounciness
+      this.jumpImpulse = rand(700, 1150); // how hard it re-launches
+
+      // Squash/stretch state.
+      this.squash = 0;      // current squash amount (0 = round)
+      this.squashVel = 0;   // for spring animation
+
+      // Wobble/spin for a little personality.
+      this.phase = rand(0, Math.PI * 2);
+      this.spin = rand(-1.2, 1.2);
+      this.rotation = 0;
+    }
+
+    update(dt) {
+      // Apply gravity.
+      this.vy += this.gravity * dt;
+
+      this.x += this.vx * dt;
+      this.y += this.vy * dt;
+      this.rotation += this.spin * dt;
+
+      // Wall bounces (left/right).
+      if (this.x - this.radius < 0) {
+        this.x = this.radius;
+        this.vx = Math.abs(this.vx) * this.restitution;
+        this.spin = Math.abs(this.spin);
+      } else if (this.x + this.radius > W) {
+        this.x = W - this.radius;
+        this.vx = -Math.abs(this.vx) * this.restitution;
+        this.spin = -Math.abs(this.spin);
+      }
+
+      // Ceiling.
+      if (this.y - this.radius < 0) {
+        this.y = this.radius;
+        this.vy = Math.abs(this.vy) * this.restitution;
+      }
+
+      // Floor collision -> bounce + squash impulse.
+      if (this.y + this.radius > floorY) {
+        this.y = floorY - this.radius;
+        const impactSpeed = this.vy;
+        this.vy = -this.vy * this.restitution;
+
+        // Keep marbles lively: if it slows too much, give it a fresh jump.
+        if (Math.abs(this.vy) < 260) {
+          this.vy = -this.jumpImpulse * rand(0.7, 1.0);
+          this.vx += rand(-40, 40);
+        }
+
+        // Squash proportional to impact speed.
+        const s = Math.min(0.55, impactSpeed / 2600);
+        if (s > this.squash) {
+          this.squash = s;
+          this.squashVel = 0;
+        }
+      }
+
+      // Air drag on horizontal motion so it doesn't run off forever.
+      this.vx *= (1 - 0.25 * dt);
+
+      // Spring the squash back toward 0 (springy jelly feel).
+      const stiffness = 260;
+      const damping = 14;
+      const accel = -stiffness * this.squash - damping * this.squashVel;
+      this.squashVel += accel * dt;
+      this.squash += this.squashVel * dt;
+      if (Math.abs(this.squash) < 0.001 && Math.abs(this.squashVel) < 0.001) {
+        this.squash = 0;
+        this.squashVel = 0;
+      }
+
+      this.phase += dt * 2;
+    }
+
+    jump() {
+      this.vy = -this.jumpImpulse * rand(0.9, 1.3);
+      this.vx += rand(-120, 120);
+    }
+
+    draw(ctx) {
+      const r = this.radius;
+      // Squash flattens vertically, stretches horizontally (volume-ish preserving).
+      const sq = this.squash;
+      const sx = 1 + sq * 0.9;
+      const sy = 1 - sq;
+
+      // Contact shadow on the floor — fades/shrinks with height.
+      const distToFloor = floorY - (this.y + r);
+      const shadowT = Math.max(0, Math.min(1, 1 - distToFloor / (H * 0.6)));
+      const shadowW = r * (1.2 + sq * 0.9) * (0.6 + 0.4 * shadowT);
+      const shadowH = shadowW * 0.28;
+      ctx.save();
+      ctx.globalAlpha = 0.28 * shadowT;
+      ctx.fillStyle = "#000";
+      ctx.beginPath();
+      ctx.ellipse(this.x, floorY + 6, shadowW, shadowH, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // The marble body.
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      ctx.scale(sx, sy);
+
+      // Base radial gradient: bright highlight offset toward top-left,
+      // darkening toward the lower-right rim => 3D sphere look.
+      const hx = -r * 0.35, hy = -r * 0.40;
+      const grad = ctx.createRadialGradient(hx, hy, r * 0.05, 0, 0, r);
+      grad.addColorStop(0.0, shade(this.rgb, 1.9));   // hot highlight
+      grad.addColorStop(0.18, shade(this.rgb, 1.35));
+      grad.addColorStop(0.55, this.color);            // mid body
+      grad.addColorStop(1.0, shade(this.rgb, 0.45));  // shaded rim
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Rim light on the lower-right for extra depth (reflected bounce light).
+      const rim = ctx.createRadialGradient(r * 0.42, r * 0.42, r * 0.1, r * 0.42, r * 0.42, r * 0.95);
+      rim.addColorStop(0, rgbaStr(this.rgb, 0));
+      rim.addColorStop(0.75, rgbaStr(this.rgb, 0));
+      rim.addColorStop(1, rgbaStr({ r: 255, g: 255, b: 255 }, 0.18));
+      ctx.fillStyle = rim;
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Glossy specular dot (small, sharp, top-left).
+      ctx.globalAlpha = 0.9;
+      const spec = ctx.createRadialGradient(hx * 1.1, hy * 1.1, 0, hx * 1.1, hy * 1.1, r * 0.5);
+      spec.addColorStop(0, "rgba(255,255,255,0.95)");
+      spec.addColorStop(0.4, "rgba(255,255,255,0.25)");
+      spec.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = spec;
+      ctx.beginPath();
+      ctx.ellipse(hx, hy, r * 0.34, r * 0.26, -0.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+  }
+
+  const COUNT = 11;
+  let marbles = [];
+  function build() {
+    marbles = [];
+    for (let i = 0; i < COUNT; i++) marbles.push(new Marble(i, COUNT));
+  }
+  build();
+
+  // Rebuild placement on resize so nothing gets stuck off-screen.
+  let resizeTimer = null;
+  window.addEventListener("resize", function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      for (const m of marbles) {
+        m.x = Math.max(m.radius, Math.min(W - m.radius, m.x));
+        if (m.y + m.radius > floorY) m.y = floorY - m.radius;
+      }
+    }, 100);
+  });
+
+  canvas.addEventListener("pointerdown", function () {
+    for (const m of marbles) m.jump();
+  });
+
+  // ---- Background rendering ----
+  function drawBackground() {
+    // Vertical sky-to-deep gradient.
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, "#141a33");
+    bg.addColorStop(0.55, "#0e1226");
+    bg.addColorStop(1, "#080a17");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // Soft glow behind the action.
+    const glow = ctx.createRadialGradient(W * 0.5, floorY, 10, W * 0.5, floorY, Math.max(W, H) * 0.7);
+    glow.addColorStop(0, "rgba(90,120,255,0.10)");
+    glow.addColorStop(1, "rgba(90,120,255,0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, W, H);
+
+    // Floor plane with a subtle sheen.
+    const floorGrad = ctx.createLinearGradient(0, floorY, 0, H);
+    floorGrad.addColorStop(0, "rgba(255,255,255,0.06)");
+    floorGrad.addColorStop(0.12, "rgba(255,255,255,0.02)");
+    floorGrad.addColorStop(1, "rgba(0,0,0,0.35)");
+    ctx.fillStyle = floorGrad;
+    ctx.fillRect(0, floorY, W, H - floorY);
+
+    // Floor line.
+    ctx.strokeStyle = "rgba(255,255,255,0.14)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, floorY + 0.5);
+    ctx.lineTo(W, floorY + 0.5);
+    ctx.stroke();
+  }
+
+  // ---- Main loop (rAF, dt-clamped for smooth 60fps feel) ----
+  let last = performance.now();
+  function frame(now) {
+    let dt = (now - last) / 1000;
+    last = now;
+    // Clamp dt so tab-switches / hitches don't explode the physics.
+    if (dt > 0.05) dt = 0.05;
+
+    drawBackground();
+
+    // Draw from back (smaller/higher) to front for a little depth ordering.
+    marbles.sort((a, b) => (a.y + a.radius) - (b.y + b.radius));
+    for (const m of marbles) {
+      m.update(dt);
+      m.draw(ctx);
+    }
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

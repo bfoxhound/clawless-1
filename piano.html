@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Web Audio Piano</title>
+<style>
+  :root {
+    --bg: #0d0f14;
+    --panel: #161a22;
+    --white-key: #f5f5f0;
+    --white-key-active: #c9d4ff;
+    --black-key: #1c1f27;
+    --black-key-active: #4a5a9e;
+    --accent: #6c8cff;
+    --text-dim: #7a8494;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+  }
+
+  body {
+    background: radial-gradient(circle at 50% 0%, #1a1f2b 0%, var(--bg) 70%);
+    color: #e8ecf3;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 24px;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  h1 {
+    font-size: 1.6rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-bottom: 28px;
+    text-align: center;
+  }
+
+  .piano {
+    position: relative;
+    display: flex;
+    background: var(--panel);
+    padding: 18px 18px 22px;
+    border-radius: 16px;
+    box-shadow:
+      0 24px 60px rgba(0, 0, 0, 0.55),
+      0 4px 12px rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  .key {
+    position: relative;
+    cursor: pointer;
+    border-radius: 0 0 8px 8px;
+    transition: background 0.05s ease, transform 0.05s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    padding-bottom: 12px;
+  }
+
+  .white {
+    width: 62px;
+    height: 260px;
+    background: linear-gradient(180deg, #ffffff 0%, var(--white-key) 100%);
+    border: 1px solid #cfcfc8;
+    box-shadow:
+      inset 0 -6px 10px rgba(0, 0, 0, 0.12),
+      0 3px 4px rgba(0, 0, 0, 0.3);
+    color: #333;
+    z-index: 1;
+  }
+
+  .white + .white { margin-left: 4px; }
+
+  .white.active {
+    background: linear-gradient(180deg, #dbe3ff 0%, var(--white-key-active) 100%);
+    transform: translateY(2px);
+  }
+
+  .black {
+    width: 40px;
+    height: 165px;
+    background: linear-gradient(180deg, #2a2e38 0%, var(--black-key) 100%);
+    border: 1px solid #000;
+    box-shadow:
+      inset 0 -4px 6px rgba(255, 255, 255, 0.06),
+      0 4px 6px rgba(0, 0, 0, 0.55);
+    color: #d8dce6;
+    position: absolute;
+    top: 18px;
+    z-index: 2;
+    margin: 0;
+  }
+
+  .black.active {
+    background: linear-gradient(180deg, #3a4577 0%, var(--black-key-active) 100%);
+    transform: translateY(2px);
+  }
+
+  .note-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    opacity: 0.55;
+  }
+
+  .shortcut {
+    font-size: 0.7rem;
+    font-weight: 700;
+    margin-top: 4px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(108, 140, 255, 0.14);
+    color: var(--accent);
+  }
+
+  .black .shortcut {
+    background: rgba(108, 140, 255, 0.22);
+    color: #b9c6ff;
+  }
+
+  .footer {
+    margin-top: 26px;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  kbd {
+    background: #232833;
+    border: 1px solid #333b48;
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: inherit;
+    font-size: 0.78rem;
+    color: #cfd6e2;
+  }
+</style>
+</head>
+<body>
+  <h1>🎹 Web Audio Piano</h1>
+  <p class="subtitle">Click the keys or use your keyboard &mdash; one octave, C4 to C5</p>
+
+  <div class="piano" id="piano"></div>
+
+  <div class="footer">
+    White keys: <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> <kbd>J</kbd>
+    &nbsp;&bull;&nbsp;
+    Black keys: <kbd>W</kbd> <kbd>E</kbd> <kbd>T</kbd> <kbd>Y</kbd> <kbd>U</kbd>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  // Note definitions for one octave, C4 (middle C) to C5.
+  // freq = 440 * 2^((n-69)/12) where n is the MIDI note number.
+  const NOTES = [
+    { note: "C4",  midi: 60, type: "white", key: "a" },
+    { note: "C#4", midi: 61, type: "black", key: "w" },
+    { note: "D4",  midi: 62, type: "white", key: "s" },
+    { note: "D#4", midi: 63, type: "black", key: "e" },
+    { note: "E4",  midi: 64, type: "white", key: "d" },
+    { note: "F4",  midi: 65, type: "white", key: "f" },
+    { note: "F#4", midi: 66, type: "black", key: "t" },
+    { note: "G4",  midi: 67, type: "white", key: "g" },
+    { note: "G#4", midi: 68, type: "black", key: "y" },
+    { note: "A4",  midi: 69, type: "white", key: "h" },
+    { note: "A#4", midi: 70, type: "black", key: "u" },
+    { note: "B4",  midi: 71, type: "white", key: "j" },
+    { note: "C5",  midi: 72, type: "white", key: "k" },
+  ];
+
+  const WHITE_WIDTH = 62;
+  const WHITE_GAP = 4;
+  const BLACK_WIDTH = 40;
+
+  const midiToFreq = (m) => 440 * Math.pow(2, (m - 69) / 12);
+
+  const piano = document.getElementById("piano");
+  const keyElements = {}; // keyboard-char -> DOM element
+
+  // Lazily create the AudioContext on first user interaction (autoplay policy).
+  let audioCtx = null;
+  function getCtx() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  }
+
+  // Play a piano-like tone with a percussive ADSR-style envelope.
+  function playNote(freq) {
+    const ctx = getCtx();
+    const now = ctx.currentTime;
+
+    const master = ctx.createGain();
+    master.connect(ctx.destination);
+
+    // Two detuned oscillators + a soft high overtone give a richer, piano-ish body.
+    const voices = [
+      { type: "triangle", detune: 0,  gain: 0.6 },
+      { type: "sine",     detune: -4, gain: 0.4 },
+      { type: "sine",     detune: 7,  gain: 0.18, octave: 2 },
+    ];
+
+    voices.forEach((v) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = v.type;
+      osc.frequency.value = freq * (v.octave || 1);
+      osc.detune.value = v.detune;
+      g.gain.value = v.gain;
+      osc.connect(g);
+      g.connect(master);
+      osc.start(now);
+      osc.stop(now + 2.2);
+    });
+
+    // Envelope: quick attack, short decay to sustain, long release.
+    const peak = 0.32;
+    master.gain.setValueAtTime(0.0001, now);
+    master.gain.exponentialRampToValueAtTime(peak, now + 0.008);   // attack
+    master.gain.exponentialRampToValueAtTime(peak * 0.6, now + 0.12); // decay
+    master.gain.exponentialRampToValueAtTime(0.0001, now + 2.0);   // release
+  }
+
+  // Build the keyboard. White keys flow in the flex row; black keys are
+  // absolutely positioned so they overlap between the correct white keys.
+  const whiteNotes = NOTES.filter((n) => n.type === "white");
+
+  NOTES.forEach((n) => {
+    if (n.type === "white") return; // handled below in order
+  });
+
+  // Render white keys first (in order), then overlay black keys.
+  let whiteIndex = 0;
+  const whiteIndexByMidi = {};
+  whiteNotes.forEach((n, i) => (whiteIndexByMidi[n.midi] = i));
+
+  NOTES.forEach((n) => {
+    const el = document.createElement("div");
+    el.className = "key " + n.type;
+    el.dataset.freq = midiToFreq(n.midi);
+    el.dataset.key = n.key;
+
+    const label = document.createElement("span");
+    label.className = "note-label";
+    label.textContent = n.note;
+
+    const sc = document.createElement("span");
+    sc.className = "shortcut";
+    sc.textContent = n.key.toUpperCase();
+
+    el.appendChild(label);
+    el.appendChild(sc);
+
+    if (n.type === "white") {
+      piano.appendChild(el);
+    } else {
+      // Position black key centered on the gap after its preceding white key.
+      // The preceding white key is the one whose midi is n.midi - 1.
+      const precedingWhiteIdx = whiteIndexByMidi[n.midi - 1];
+      const left =
+        18 + // piano padding-left
+        (precedingWhiteIdx + 1) * WHITE_WIDTH +
+        precedingWhiteIdx * WHITE_GAP +
+        WHITE_GAP / 2 -
+        BLACK_WIDTH / 2;
+      el.style.left = left + "px";
+      piano.appendChild(el);
+    }
+
+    keyElements[n.key] = el;
+
+    el.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      trigger(n.key);
+    });
+    el.addEventListener("mouseup", () => release(n.key));
+    el.addEventListener("mouseleave", () => release(n.key));
+    el.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      trigger(n.key);
+    }, { passive: false });
+    el.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      release(n.key);
+    });
+  });
+
+  // Track which keys are currently held to avoid retriggering on key repeat.
+  const held = {};
+
+  function trigger(key) {
+    const el = keyElements[key];
+    if (!el || held[key]) return;
+    held[key] = true;
+    el.classList.add("active");
+    playNote(parseFloat(el.dataset.freq));
+  }
+
+  function release(key) {
+    const el = keyElements[key];
+    if (!el) return;
+    held[key] = false;
+    el.classList.remove("active");
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.repeat) return;
+    const key = e.key.toLowerCase();
+    if (keyElements[key]) {
+      e.preventDefault();
+      trigger(key);
+    }
+  });
+
+  document.addEventListener("keyup", (e) => {
+    const key = e.key.toLowerCase();
+    if (keyElements[key]) {
+      e.preventDefault();
+      release(key);
+    }
+  });
+})();
+</script>
+</body>
+</html>
