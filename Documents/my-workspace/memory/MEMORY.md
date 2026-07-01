@@ -1,6 +1,6 @@
-# About Shreyas
+# About Ron
 
-- **Name**: Shreyas
-- **Preference**: Shreyas prefers to be called by their name in conversations
+- **Name**: Ron
+- **Preference**: Ron prefers to be called by their name in conversations
 - **Purpose**: Personalizes our interactions and builds rapport
-- **First interaction**: Shreyas explicitly requested this in early conversation
+- **Last updated**: Name changed from Shreyas to Ron at user's request
